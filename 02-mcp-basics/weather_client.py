@@ -34,11 +34,19 @@ async def main() -> None:
             for t in tools.tools:
                 print(f"  - {t.name}: {t.description}")
 
-            # 2. Gọi tool — SERVER thực thi rồi trả kết quả về qua MCP
+            # 2. Tạo đối số từ schema và gọi bằng tên server đã công bố
             for city in ["Hanoi", "Danang", "Haiphong"]:
-                result = await session.call_tool("get_weather", {"city": city})
-                print(f"\ncall_tool get_weather(city={city!r}):")
-                print("  ->", result.content[0].text)
+                for tool in tools.tools:
+                    schema = tool.input_schema
+                    required = schema.get("required", [])
+                    args = {}
+                    for name, spec in schema.get("properties", {}).items():
+                        if name in required:
+                            args[name] = city if spec.get("type") == "string" else 3
+
+                    result = await session.call_tool(tool.name, args)
+                    print(f"\ncall_tool {tool.name}({args}):")
+                    print("  ->", result.content[0].text)
 
 
 if __name__ == "__main__":

@@ -32,5 +32,19 @@ def get_weather(city: str) -> str:
     return f"{city}: {_MOCK_DB.get(city, '28°C, không có dữ liệu chi tiết')}"
 
 
+@mcp.tool()
+def get_forecast(city: str, days: int = 3) -> str:
+    """Dự báo thời tiết của một thành phố trong 1 đến 3 ngày tới."""
+    if not 1 <= days <= 3:
+        return "Số ngày dự báo phải nằm trong khoảng 1 đến 3."
+
+    conditions = ["nắng nhẹ", "nhiều mây", "mưa rào"]
+    return "\n".join(
+        f"{city} - ngày {day}: {conditions[(day - 1) % len(conditions)]}, "
+        f"cao {29 + day}°C, thấp {24 + day}°C"
+        for day in range(1, days + 1)
+    )
+
+
 if __name__ == "__main__":
     mcp.run()  # mặc định chạy qua stdio

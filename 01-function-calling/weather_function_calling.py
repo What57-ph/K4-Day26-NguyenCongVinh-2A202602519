@@ -38,7 +38,20 @@ get_weather_declaration = types.FunctionDeclaration(
     ),
 )
 
-TOOLS = [types.Tool(function_declarations=[get_weather_declaration])]
+get_forecast_declaration = types.FunctionDeclaration(
+    name="get_forecast",
+    description="Dự báo thời tiết cho một thành phố trong 1 đến 3 ngày tới",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "city": types.Schema(type=types.Type.STRING, description="Tên thành phố"),
+            "days": types.Schema(type=types.Type.INTEGER, description="Số ngày dự báo, từ 1 đến 3"),
+        },
+        required=["city", "days"],
+    ),
+)
+
+TOOLS = [types.Tool(function_declarations=[get_weather_declaration, get_forecast_declaration])]
 
 
 # 2. App tự thực thi tool (trong thực tế sẽ gọi API thời tiết thật)
@@ -70,6 +83,25 @@ def get_weather(city: str) -> str:
     return json.dumps({"city": city, **mock_data.get(city, default)}, ensure_ascii=False)
 
 
+def get_forecast(city: str, days: int = 3) -> str:
+    """Trả về dự báo thời tiết mock của *city* trong tối đa 3 ngày."""
+    import json
+
+    if not 1 <= days <= 3:
+        return json.dumps({"error": "days phải nằm trong khoảng 1 đến 3"}, ensure_ascii=False)
+    conditions = ["nắng nhẹ", "nhiều mây", "mưa rào"]
+    return json.dumps(
+        {
+            "city": city,
+            "forecast": [
+                {"day": day, "condition": conditions[(day - 1) % len(conditions)], "high": f"{29 + day}°C", "low": f"{24 + day}°C"}
+                for day in range(1, days + 1)
+            ],
+        },
+        ensure_ascii=False,
+    )
+
+
 def run(prompt: str) -> str:
     """Gửi *prompt* tới Gemini, tự động xử lý function calling và trả về câu trả lời cuối."""
     contents: list[types.Content] = [
@@ -94,7 +126,8 @@ def run(prompt: str) -> str:
         function_responses = []
         for fc in resp.function_calls:
             print(f"  [model yêu cầu] {fc.name}({fc.args})")
-            result = get_weather(**fc.args)  # <-- app chạy, không phải model
+            handlers = {"get_weather": get_weather, "get_forecast": get_forecast}
+            result = handlers[fc.name](**fc.args)  # <-- app chạy, không phải model
             print(f"  [app thực thi]  -> {result}")
             function_responses.append(
                 types.Part.from_function_response(
